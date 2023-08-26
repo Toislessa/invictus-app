@@ -7,7 +7,7 @@ import time
 import webbrowser
 import asyncio
 # Inicie o servidor Flask em um processo separado
-flask_process = subprocess.Popen([sys.executable, "app.py"])
+flask_process = subprocess.Popen([sys.executable, "app1.py"])
 time.sleep(0.5)  # Aguarde um pouco para o servidor Flask iniciar
 # webbrowser.open('http://127.0.0.1:5000/')  # Abra a URL no navegador padrão
 

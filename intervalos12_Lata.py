@@ -523,7 +523,7 @@ async def main():
     df4.at[4, 'Horarios'] = 'Total'
     # fim gerar df4
 
-    # df = df.drop(columns=['multiplos'])
+    df = df.drop(columns=['multiplos'])
 
     # Crie um dicionário para mapear os números às imagens
     image_dict = {

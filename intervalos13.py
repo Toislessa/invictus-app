@@ -3,27 +3,28 @@ import pandas as pd
 import os
 import asyncio
 import aiohttp
-from datetime import datetime, timedelta
 from datetime import time as dt_time
-import webbrowser
 import time
 from collections import OrderedDict
-from datetime import datetime
 from datetime import datetime, timedelta, date
-
-
 from joblib import Parallel, delayed
 
 start_time = time.time()  # Início da medição do tempo
-
 
 async def fetch(session, url):
     async with session.get(url) as response:
         return await response.json()
 
+def read_current_result():
+    try:
+        with open('current_result.txt', 'r') as file:
+            result = file.readline().strip().split(',')
+            return int(result[0]), result[1]
+    except:
+        return None
 
 async def main():
-    print("Running intervalos.py")
+    print("Running intervalos13. Aguarde.....")
     # Delete the output.html file if it exists
     if os.path.exists("output1.html"):
         os.remove("output1.html")
@@ -46,7 +47,9 @@ async def main():
     cycles = []  # Lista para armazenar o ciclo atual
     missing_numbers = []  # Lista para armazenar os números que faltam
     todas_as_listas_de_multiplos = []
-
+    sequence = []
+    sequence_2 = []
+    sequence_3 = []
     urls = ["https://blaze.com/api/roulette_games/history?page=" + str(page) for page in
             reversed(range(1, total_pages + 1))]
 
@@ -56,8 +59,9 @@ async def main():
         for url in urls:
             tasks.append(fetch(session, url))
         pages = await asyncio.gather(*tasks)
-
-    for page in pages:
+    current_result_added = False  # Variável para controlar se o current_result já foi adicionado
+    current_result_added2 = False
+    for page_index, page in enumerate(pages):
         resultados = reversed(page['records'])
         for resultado in resultados:
             roll = resultado['roll']
@@ -72,7 +76,6 @@ async def main():
 
             created_at_str = created_at_datetime.strftime("%H:%M")
             created_at_str_2 = created_at_datetime_2.strftime("%H:%M")
-
             # Verifique se o horário é após as 22h do dia anterior ou antes da hora atual do dia atual
             if (created_at_datetime_2.time() >= dt_time(22, 0) and created_at_datetime_2.date() == (
                     datetime.now() - timedelta(days=1)).date()) or (
@@ -80,80 +83,83 @@ async def main():
                 rolls_2.append(roll_2)
                 created_at_str_2 = created_at_datetime_2.strftime("%H:%M")
                 times_2.append(created_at_str_2)
+                sequence_2.append((roll_2, created_at_str_2, created_at_datetime_2))
 
             # Verifique se a data é a data atual
             if created_at_datetime.date() == datetime.now().date():
                 rolls.append(roll)
                 times.append(created_at_str)
+                sequence.append((roll, created_at_str, created_at_datetime))
 
-            if roll == 0:
-                if ((created_at_datetime_2.time() >= dt_time(22, 0) and created_at_datetime_2.date() == (
-                        datetime.now() - timedelta(days=1)).date()) or (
-                        created_at_datetime_2.time() < datetime.now().time() and created_at_datetime_2.date() == datetime.now().date())):
-                    zeros_2.append(roll)
-                    zero_times_2.append(created_at_str_2)
-                    print(f"Zero encontrado em {created_at_str_2}")
-                    multiplos_14 = []
+    current_result = read_current_result()
+    if current_result:
+        rolls.reverse()
+        rolls_2.reverse()
+        times.reverse()
+        times_2.reverse()
+        rolls_2.insert(0,current_result[0])
+        times_2.insert(0,current_result[1])
+        rolls.insert(0,current_result[0])
+        times.insert(0,current_result[1])
+        rolls.reverse()
+        rolls_2.reverse()
+        times.reverse()
+        times_2.reverse()
 
-                    # Adicione os múltiplos de 14 a esta lista
-                    for i in range(14, 262, 14):
-                        if created_at_str_2 is not None:  # Verifique se created_at_str_2 não é None
-                            next_time = (datetime.strptime(created_at_str_2, "%H:%M") + timedelta(minutes=i)).strftime(
-                                "%H:%M")
-                            multiplos_14.append(next_time)
+    for roll_2, created_at_str_2, created_at_datetime_2 in sequence_2:
 
-                    print(f"Lista de múltiplos criada para este zero: {multiplos_14}")
-
-                    # Adicione esta lista de múltiplos à lista de todas as listas de múltiplos
-                    todas_as_listas_de_multiplos.append(multiplos_14)
-
-            if roll == 0 and created_at_datetime.date() == datetime.now().date():
-
-                zeros.append(roll)
-                zero_times.append(created_at_str)
-                print(f"Zero encontrado em {created_at_str}")
+        if roll_2 == 0:
+            if ((created_at_datetime_2.time() >= dt_time(22, 0) and created_at_datetime_2.date() == (
+                    datetime.now() - timedelta(days=1)).date()) or (
+                    created_at_datetime_2.time() < datetime.now().time() and created_at_datetime_2.date() == datetime.now().date())):
+                zeros_2.append(roll_2)
+                zero_times_2.append(created_at_str_2)
                 multiplos_14 = []
 
-                cycles.append(f"Ciclo{cycle_count}")
-                print(f"cycle_numbers:{cycle_numbers}")
-                missing_numbers.append(list(cycle_numbers - current_cycle_numbers))
-                print(f"current_cycle_numbers:{current_cycle_numbers}")
-                print(f"missing_numbers:{missing_numbers}")
+                # Adicione os múltiplos de 14 a esta lista
+                for i in range(14, 262, 14):
+                    if created_at_str_2 is not None:  # Verifique se created_at_str_2 não é None
+                        next_time = (datetime.strptime(created_at_str_2, "%H:%M") + timedelta(minutes=i)).strftime(
+                            "%H:%M")
+                        multiplos_14.append(next_time)
 
-                if first_zero_found:
-                    intervals.append(interval_count)
-                interval_count = 0
-                first_zero_found = True
+                # Adicione esta lista de múltiplos à lista de todas as listas de múltiplos
+                todas_as_listas_de_multiplos.append(multiplos_14)
+    for index, (roll, created_at_str, created_at_datetime) in enumerate(sequence):
+        if roll == 0 and created_at_datetime.date() == datetime.now().date():
+            zeros.append(roll)
+            zero_times.append(created_at_str)
+            multiplos_14 = []
+            cycles.append(f"Ciclo{cycle_count}")
+            missing_numbers.append(list(cycle_numbers - current_cycle_numbers))
 
-                # Crie a "lista do zero"
-                zero_list = [created_at_str,
-                             (created_at_datetime - timedelta(minutes=1)).strftime("%H:%M"),
-                             (created_at_datetime + timedelta(minutes=1)).strftime("%H:%M")]
-                print(f"Lista do zero criada: {zero_list}")
+            if first_zero_found:
+                intervals.append(interval_count)
+            interval_count = 0
+            first_zero_found = True
 
-                if rolls:
-                    last_payer_index = -2
-                    while abs(last_payer_index) <= len(rolls) and rolls[
-                        last_payer_index] == 0:  # Continue procurando até encontrar um número não-zero
-                        last_payer_index -= 1
-                    if abs(last_payer_index) > len(rolls):
-                        last_payer = " "
-                    else:
-                        last_payer = rolls[last_payer_index]
-                    payers.append(last_payer)
-                    if last_payer != " ":
-                        current_cycle_numbers.add(last_payer)  # Adicione o número pagador a current_cycle_numbers aqui
+            # Crie a "lista do zero"
+            zero_list = [created_at_str,
+                         (created_at_datetime - timedelta(minutes=1)).strftime("%H:%M"),
+                         (created_at_datetime + timedelta(minutes=1)).strftime("%H:%M")]
+            # print(f"Lista do zero criada: {zero_list}")
 
-                    if cycle_numbers.issubset(current_cycle_numbers):
-                        print("Cycle completed!")
-                        last_payer = str(last_payer) + "F"
-                        payers[-1] = last_payer
-                        current_cycle_numbers = set()  # Reinicie current_cycle_numbers aqui
-                        cycle_count += 1  # Incrementa o contador de ciclos
+            if index > 0 :  # Obtenha o pagador imediatamente antes do zero atual
+                last_payer = rolls[index - 1]
+            else:
+                last_payer = " "
+            payers.append(last_payer)
+            if last_payer != " ":
+                current_cycle_numbers.add(last_payer)  # Adicione o número pagador a current_cycle_numbers aqui
 
-            elif first_zero_found:
-                interval_count += 1
-                print(f"Roll:{roll}, Created at: {created_at_str}, Interval count: {interval_count}")
+            if cycle_numbers.issubset(current_cycle_numbers):
+                last_payer = str(last_payer) + "F"
+                payers[-1] = last_payer
+                current_cycle_numbers = set()  # Reinicie current_cycle_numbers aqui
+                cycle_count += 1  # Incrementa o contador de ciclos
+
+        elif first_zero_found:
+            interval_count += 1
 
     # ####################Nova análise de probabilidades
     zeros_indices = [i for i, roll_2 in enumerate(rolls_2) if roll_2 == 0]
@@ -189,7 +195,7 @@ async def main():
         zeros_numeros_antecessores.append(antecessores)
         zeros_numeros_sucessores.append(sucessores)
         #  Imprimir os antecessores e sucessores dos últimos 3 zeros
-        print("Sucessores dos últimos 3 zeros: ", zeros_numeros_sucessores[-3:])
+        # print("Sucessores dos últimos 3 zeros: ", zeros_numeros_sucessores[-3:])
 
     # Garantir que nenhum zero esteja presente nos conjuntos de números antecessores e posteriores
     for i, numeros_antecessores in enumerate(zeros_numeros_antecessores):
@@ -292,14 +298,14 @@ async def main():
         zeros_horarios_provaveis.append(probabilidades)
 
         # Exibir as informações na saída
-    for i, indice in enumerate(zeros_indices_uniq):
-        print(f"Branco: {zeros_horarios_uniq[i]}")
-        print(f"Números antes: {', '.join(map(str, zeros_numeros_antecessores_uniq[i]))}")
-        print(f"Números depois: {', '.join(map(str, zeros_numeros_sucessores_uniq[i]))}")
-        print("Horários prováveis:")
-        for j, horario_provavel in enumerate(zeros_horarios_provaveis[i]):
-            print(f"E{j + 1} - {horario_provavel}")
-        print()
+    #for i, indice in enumerate(zeros_indices_uniq):
+        # print(f"Branco: {zeros_horarios_uniq[i]}")
+        # print(f"Números antes: {', '.join(map(str, zeros_numeros_antecessores_uniq[i]))}")
+        # print(f"Números depois: {', '.join(map(str, zeros_numeros_sucessores_uniq[i]))}")
+        # print("Horários prováveis:")
+        #for j, horario_provavel in enumerate(zeros_horarios_provaveis[i]):
+            #print(f"E{j + 1} - {horario_provavel}")
+        # print()
     # INICIO DE CRIA O DF 3 COM AS PERNAS DOS BRANCOS
 
     # Inicialize uma lista vazia para armazenar os dados do DataFrame
@@ -325,7 +331,7 @@ async def main():
     # Adicione o último intervalo à lista de intervalos
     if interval_count > 0:
         intervals.append(interval_count)
-        print(f"Zero found at {created_at_str}, interval: {interval_count}")
+        # print(f"Zero found at {created_at_str}, interval: {interval_count}")
 
     # Conte a frequência de cada intervalo
     interval_counts = Counter(intervals)
@@ -377,13 +383,13 @@ async def main():
 
     df2 = pd.DataFrame({
 
-        "Pagador": payers,
+        "Payer": payers,
         "Ciclo": cycles,
         "Falta Pagar": missing_numbers,
         "Branco": zero_times_2,
     })
 
-    df2['Linha'] = range(1, len(df2) + 1)
+    df2['L'] = range(1, len(df2) + 1)
 
     def get_ith_multiple(multiplos, i):
         try:
@@ -404,19 +410,19 @@ async def main():
 
         # Adicione a lista col_values como uma nova coluna no DataFrame df2
         df2[str(i)] = col_values
-        print(f"Coluna {i} adicionada ao DataFrame com valores: {col_values}")
+        # print(f"Coluna {i} adicionada ao DataFrame com valores: {col_values}")
 
     # Concatene os dois DataFrames horizontalmente
     df = pd.concat([df1, df2], axis=1)
 
-    print(f"zero_times: {zero_times}")
-    print(f"zero_times_2: {zero_times_2}")
+    # print(f"zero_times: {zero_times}")
+    # print(f"zero_times_2: {zero_times_2}")
 
     def color_column(val):
         color = '#1a242d'
         return 'background-color: %s' % color
 
-    styled = df.style.applymap(color_column, subset=['Linha'])
+    styled = df.style.applymap(color_column, subset=['L'])
 
     def adjust_time(hour, minute):
         hour += minute // 60
@@ -448,7 +454,7 @@ async def main():
                 if row == horario_ajustado:
                     total_correspondentes += 1  # Incrementa o contador
         if total_correspondentes:  # Se o contador não for zero
-            return f"{row} Total: {total_correspondentes}"  # Adiciona o total de horários correspondentes à célula
+            return f"{row} {total_correspondentes}"  # Adiciona o total de horários correspondentes à célula
         else:
             return row
 
@@ -463,9 +469,9 @@ async def main():
     previous_zero_time = None  # Inicialize a variável fora do loop
 
     for i, row in df.iterrows():
-        print(f"Processando linha {i}...")
+        # print(f"Processando linha {i}...")
         if row['Branco'] is not None:
-            print(f"  multiplos: {row['multiplos']}")
+            # print(f"  multiplos: {row['multiplos']}")
             if previous_zero_time == row['Branco']:
                 df.at[i, 'multiplos'] = ["DUPLO" for _ in row['multiplos']]  # Substitua todos os horários por "DUPLO"
                 for column in index_to_column.values():  # Substitua os valores correspondentes nas colunas de múltiplos de 14 por "DUPLO"
@@ -477,15 +483,15 @@ async def main():
             if not any("X" in multiplo for multiplo in row['multiplos']):
                 previous_time = row['Branco']
                 for j, multiplos in df['multiplos'].items():
-                    print(f"  Processando célula {j}...")
+                    # print(f"  Processando célula {j}...")
                     if j > i or any("X" in multiplo for multiplo in multiplos) or any(
                             "P" in multiplo for multiplo in multiplos):
                         continue
                     zero_time_2 = get_time_shifted(row['Branco'], 0)  # Busca pelo minuto exato
-                    print(f"  Verificando zero_time: {zero_time_2}")
+                    # print(f"  Verificando zero_time: {zero_time_2}")
                     if zero_time_2 in multiplos:
-                        print(f"  Encontrado {zero_time_2} em multiplos!")
-                        df.at[i, 'Branco'] = f"X {row['Branco']} Lata Linha {j + 1}"
+                        # print(f"  Encontrado {zero_time_2} em multiplos!")
+                        df.at[i, 'Branco'] = f"X {row['Branco']} Linha {j + 1}"
                         zero_time_index = multiplos.index(zero_time_2)
                         column = index_to_column[zero_time_index]
                         df.at[j, column] = f"X {df.at[j, column]} Lata"
@@ -498,17 +504,17 @@ async def main():
                     "X" in multiplo for multiplo in row['multiplos']):
                 previous_time = row['Branco']
                 for j, multiplos in df['multiplos'].items():
-                    print(f"  Processando célula {j}...")
+                    # print(f"  Processando célula {j}...")
                     if j > i or any("X" in multiplo for multiplo in multiplos) or any(
                             "P" in multiplo for multiplo in multiplos):
                         continue
-                    for shift, label in [(-1, 'Depois'),
-                                         (1, 'Antes')]:  # Busca pelos horários com minuto antes e depois
+                    for shift, label in [(-1, '+1Min'),
+                                         (1, '-1Min')]:  # Busca pelos horários com minuto antes e depois
                         zero_time_2 = get_time_shifted(row['Branco'], shift)
-                        print(f"  Verificando zero_time: {zero_time_2}")
+                        # print(f"  Verificando zero_time: {zero_time_2}")
                         if zero_time_2 in multiplos:
-                            print(f"  Encontrado {zero_time_2} em multiplos!")
-                            df.at[i, 'Branco'] = f"P {row['Branco']} {label} Linha {j + 1}"
+                            # print(f"  Encontrado {zero_time_2} em multiplos!")
+                            df.at[i, 'Branco'] = f"P {row['Branco']} Linha {j + 1}"
                             zero_time_index = multiplos.index(zero_time_2)
                             column = index_to_column[zero_time_index]
                             df.at[j, column] = f"P {df.at[j, column]} {label}"
@@ -531,11 +537,11 @@ async def main():
     uma_hora_depois = (datetime.now() + timedelta(hours=0.5)).time()  # obtenha a hora que será uma hora a partir de agora
 
     for i, row in df.iterrows():
-        print(f"Processando linha {i}...")
+        # print(f"Processando linha {i}...")
         # Verifique se "P" está em algum lugar da lista de horários
         if any("P" in multiplo for multiplo in row['multiplos']):
             continue  # Se "P" estiver presente, ignore esta linha
-        print(f"  multiplos: {row['multiplos']}")
+        # print(f"  multiplos: {row['multiplos']}")
         # Adicione os horários sem "P" ao OrderedDict se eles forem a partir da hora atual e dentro de uma hora
         # Adicione os horários sem "P" ao OrderedDict se eles forem a partir da hora atual e dentro de uma hora
         # Adicione os horários sem "P" ao OrderedDict se eles forem a partir da hora atual e dentro de uma hora
@@ -582,6 +588,7 @@ async def main():
         return delta <= timedelta(minutes=1)
 
     # Pega os horários prováveis das linhas 3 e 4 de df3
+
     branco1_times = df3.loc[3].tolist()
     branco2_times = df3.loc[4].tolist()
 
@@ -614,309 +621,14 @@ async def main():
 # FIM gerar df4
 
     df = df.drop(columns=['multiplos'])
+    # Adicione isso antes de salvar o CSV em intervalos13.py
+    df['update_timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    df.to_csv("df.csv", index=False)
 
-    # Crie um dicionário para mapear os números às imagens
-    image_dict = {
-        0: "./static/0.jpeg",
-        1: "./static/1.jpeg",
-        2: "./static/2.jpeg",
-        3: "./static/3.jpeg",
-        4: "./static/4.jpeg",
-        5: "./static/5.jpeg",
-        6: "./static/6.jpeg",
-        7: "./static/7.jpeg",
-        8: "./static/8.jpeg",
-        9: "./static/9.jpeg",
-        10: "./static/10.jpeg",
-        11: "./static/11.jpeg",
-        12: "./static/12.jpeg",
-        13: "./static/13.jpeg",
-        14: "./static/14.jpeg",
-    }
-    # Substitua os números na coluna "Números" pelas imagens correspondentes
-    df["Números"] = df["Números"].map(image_dict)
-    # Substitua NaN por uma string vazia
-    df.fillna("", inplace=True)
-    # Tente converter as colunas para inteiros apenas para a visualização
-    for col in [3, 5, 6]:  # Colunas C, E, F
-        # df.iloc[:, col] = df.iloc[:, col].apply(lambda x: int(x) if isinstance(x, str) and x.isdigit() else x)
-        df.iloc[:, col] = df.iloc[:, col].apply(lambda x: int(x) if x != "" else x)
+    df.to_csv('df.csv', index=False)
+    df3.to_csv('df3.csv', index=False)
+    df4.to_csv('df4.csv', index=False)
 
-    for col in [8]:  # Colunas C, E, F
-        df.iloc[:, col] = df.iloc[:, col].apply(lambda x: int(x) if isinstance(x, str) and x.isdigit() else x)
-        # df.iloc[:, col] = df.iloc[:, col].apply(lambda x: int(x) if x != "" else x)
-    # Substitua as URLs das imagens por tags de imagem HTML
-    df["Números"] = df["Números"].apply(lambda url: f'<img src="{url}" width="50" height="50">')
-    # Substitua "F" pela imagem desejada
-    df["Pagador"] = df["Pagador"].apply(lambda
-                                            x: f'<div style="position: relative; text-align: center;"><img src="./static/ciclo2.png" width="45" height=45"><span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white;">{x[:-1]}</span></div>' if isinstance(
-        x, str) and x.endswith("F") else x)
-
-    # Crie uma nova coluna "Sequência" que combina "Números" e "Horários"
-    df["Sequência"] = '<div style="text-align: center">' + df["Números"].astype(str) + "<br>" + df["Horários"].astype(
-        str) + '</div>'
-
-    # Remova as colunas "Números", "Horários", "Brancos" e "Horário"
-    df = df.drop(columns=["Números", "Horários"])
-
-    # Reordene as colunas para que "Sequência" e "Brancos" sejam as primeiras
-    df = df[["Sequência", "Branco 1"] + [col for col in df.columns if col not in ["Sequência", "Branco 1"]]]
-
-    # Adicione a imagem acima do horário nas colunas "Branco 1" e "Branco 2"
-    df["Branco 1"] = df["Branco 1"].apply(
-        lambda x: f'<img src="./static/0.jpeg" width="50" height="50"><br>{x}' if ":" in x else x)
-    df["Branco 2"] = df["Branco 2"].apply(
-        lambda x: f'<img src="./static/0.jpeg" width="50" height="50"><br>{x}' if ":" in x else x)
-
-    # Adicione a imagem acima do horário na coluna "Branco" Df2
-    df["Branco"] = df["Branco"].apply(
-        lambda x: f'<img src="./static/pago3.jpeg" width="50" height="50"><br>{x.replace("P ", "")}' if "P" in x else (
-            f'<img src="./static/pago31.jpeg" width="50" height="50"><br>{x.replace("X ", "")}' if "X" in x else (
-                f'<img src="./static/0.jpeg" width="50" height="50"><br>{x}' if ":" in x else x)))
-
-
-
-
-    # Adicione a imagem à coluna "Intervalo" apenas se a célula estiver preenchida
-    df["Casas"] = df["Casas"].apply(lambda
-                                        x: f'<div style="position: relative; text-align: center;"><img src="./static/intervalo1.png" width="50" height="55"><span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: black;">{x}</span></div>' if x != "" else "")
-
-    # Adicione a imagem à coluna "frequencias" apenas se a célula estiver preenchida
-    df["Número de Vezes"] = df["Número de Vezes"].apply(lambda
-                                                            x: f'<div style="position: relative; text-align: center;"><img src="./static/freq.png" width="50" height="55"><span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white;">{x}</span></div>' if x != "" else "")
-
-    # Cria uma lista com os nomes das colunas
-    columns = [str(i) for i in range(14, 262, 14)]  # Cria uma lista com os nomes das colunas
-    for column in columns:
-        df[column] = df[column].apply(lambda
-                                          x: f'<div style="text-align: center;"><img src="./static/pago.png" width="20" height="20"><br><div>{x[2:]}</div></div>' if isinstance(
-            x, str) and x.startswith('P ') else x)
-
-    # Cria uma lista com os nomes das colunas
-    columns = [str(i) for i in range(14, 262, 14)]  # Cria uma lista com os nomes das colunas
-    for column in columns:
-        df[column] = df[column].apply(lambda x: f'<div style="text-align: center;"><img src="./static/pago4.png" width="20" height="20"><br><div>{x[2:]}</div></div>' if isinstance(x, str) and x.startswith('X ') else x)
-
-    # Converta a coluna "Intervalos" para números, ignorando os erros
-    df["Casas Ordem"] = pd.to_numeric(df["Casas Ordem"], errors='coerce')
-
-    # Calcule o valor máximo da coluna "Intervalos" antes de fazer a substituição
-    max_interval = df["Casas Ordem"].max()
-
-    # Crie uma função para gerar o HTML para uma barra
-    def create_bar(value, max_value):
-        # Calcule a largura da barra como uma porcentagem do valor máximo
-        # Ajuste a largura para que o valor mínimo seja 50% da largura máxima
-        width = 10 + ((value - 1) / (max_value - 1)) * 90
-
-        # Retorne o HTML para a barra e o valor
-        return f'{int(value)}<div style="background-color:blue; width:{width}%; height:10px;"></div>'
-
-    # Aplique a função à coluna "Intervalos" para criar as barras
-    df["Casas Ordem"] = df["Casas Ordem"].apply(lambda x: create_bar(x, max_interval) if pd.notnull(x) else "")
-
-    def increase_font(value):
-        if value is not None:
-            return f'<span style="font-size: 1.2em;">{value}</span>'
-        else:
-            return value
-
-    df["Casas"] = df["Casas"].apply(increase_font)
-    df["Casas Ordem"] = df["Casas Ordem"].apply(increase_font)
-    df["Número de Vezes"] = df["Número de Vezes"].apply(increase_font)
-
-    # Defina uma função para adicionar o estilo CSS
-    def add_style(cell):
-        if cell == "&nbsp;":
-            return 'background-color: #808080;'  # Use qualquer cor em hexadecimal que você quiser
-        else:
-            return ''
-
-    # Aplique a função de estilo à coluna vazia
-    df_styled = df.style.applymap(add_style, subset=pd.IndexSlice[:, [' ']])
-
-    # Gere o HTML do DataFrame df sem o índice
-    html_df = df.to_html(index=False, escape=False)
-
-    # Gere o HTML do DataFrame df3 sem o índice e adicione um ID
-    html_df3 = df3.to_html(index=False, escape=False)
-    html_df3 = f'<div id="df3" style="display: block;">{html_df3}</div>'
-
-    # Gere o HTML do DataFrame df4 sem o índice e adicione um ID
-    html_df4 = df4.to_html(index=False, escape=False)
-    html_df4 = f'<div id="df4" style="display: none;">{html_df4}</div>'
-
-    # Adicione o botão de alternância ao HTML
-    toggle_button = """
-    <div class="switch-container">
-      <span class="switch-label">Exibir Horarios que faltam pagar</span>
-      <div class="switch">
-        <input type="checkbox" onclick="toggleDf()" id="toggle">
-        <label for="toggle" class="slider round"></label>
-      </div>
-    </div>
-    """
-
-    # Em seguida, substitua o nome da coluna "E1" por uma tag de imagem HTML
-    html_df3 = html_df3.replace('>E1<', '><img src="./static/E1.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E2<', '><img src="./static/E2.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E3<', '><img src="./static/E3.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E4<', '><img src="./static/E4.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E5<', '><img src="./static/E5.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E6<', '><img src="./static/E6.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E7<', '><img src="./static/E7.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E8<', '><img src="./static/E8.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E9<', '><img src="./static/E9.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E10<', '><img src="./static/E10.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E11<', '><img src="./static/E11.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E12<', '><img src="./static/E12.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E13<', '><img src="./static/E13.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E14<', '><img src="./static/E14.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E15<', '><img src="./static/E15.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E16<', '><img src="./static/E16.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E17<', '><img src="./static/E17.png" width="100%" height="100%" /><')
-    html_df3 = html_df3.replace('>E18<', '><img src="./static/E18.png" width="100%" height="100%" /><')
-
-    # Concatene o HTML de df3, df4, o botão de alternância e df
-    # Concatene o HTML de df3, df4, o botão de alternância e df
-    html = f'<div style="overflow:auto; height:auto;">{toggle_button}{html_df3}{html_df4}</div><div style="overflow:auto; height:74vh;">{html_df}</div>'
-
-    # Adicione o CSS ao HTML
-    html = html.replace('<table',
-                        '<table style="margin-left: auto; margin-right: auto; border: 10px solid #1a242d; border-collapse: collapse;" border="1" class="dataframe"')
-    html = html.replace('<th',
-                        '<th style="text-align: center; background-color: #282d37; color: white; font-size: 1em; font-weight: bold; border: 2px solid #1a242d; padding: 0;"')
-    html = html.replace('<td',
-                        '<td style="width: 80px;text-align: center; background-color: #0f1923; color: white; font-size: 1em; font-weight: bold; border: 2px solid #1a242d; padding: 0;"')
-    html = html.replace('<thead>', '<thead style="background-color: #282d37;">')
-    html = html.replace('<td>', '<td style="background-color: #282d37;">')
-
-    # Adicione a declaração do charset UTF-8
-    html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n</head>\n<body>\n' + html
-
-    # Adicione o código JavaScript ao HTML
-    html += """
-
-
-    <script>
-    // Quando a página é carregada, restaure a posição de rolagem
-    window.onload = function() {
-        var scrollPosition = sessionStorage.getItem('scrollPosition');
-        if (scrollPosition) {
-            window.scrollTo(0, scrollPosition);
-        }
-        fetch('http://127.0.0.1:5000/delete_output1', {
-            method: 'POST',
-        })
-        .then(response => response.text())
-        .then(data => console.log(data))
-        .catch((error) => {
-            console.error('Error:', error);
-        });
-    };
-
-    // Antes da página ser descarregada, armazene a posição de rolagem
-    window.onbeforeunload = function() {
-        var scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-        sessionStorage.setItem('scrollPosition', scrollPosition);
-    };
-
-    var df3Visible = true;
-
-function toggleDf() {
-    if (df3Visible) {
-        document.getElementById('df3').style.display = 'none';
-        document.getElementById('df4').style.display = 'block';
-    } else {
-        document.getElementById('df3').style.display = 'block';
-        document.getElementById('df4').style.display = 'none';
-    }
-    df3Visible = !df3Visible;
-}    
-    </script>
-    """
-
-    # Adicione o CSS do botão de alternância ao HTML
-    html += """
-    <style>
-    .switch-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px;
-      background-color: #282d37;  /* Adicione esta linha */
-      color: white;  /* Adicione esta linha */
-    }
-
-    .switch-label {
-      margin-right: 10px;
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 30px;  /* Reduzido pela metade */
-      height: 17px;  /* Reduzido pela metade */
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      -webkit-transition: .4s;
-      transition: .4s;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 13px;  /* Reduzido pela metade */
-      width: 13px;  /* Reduzido pela metade */
-      left: 2px;  /* Reduzido pela metade */
-      bottom: 2px;  /* Reduzido pela metade */
-      background-color: white;
-      -webkit-transition: .4s;
-      transition: .4s;
-    }
-
-    input:checked + .slider {
-      background-color: #2196F3;
-    }
-
-    input:focus + .slider {
-      box-shadow: 0 0 1px #2196F3;
-    }
-
-    input:checked + .slider:before {
-      -webkit-transform: translateX(13px);  /* Reduzido pela metade */
-      -ms-transform: translateX(13px);  /* Reduzido pela metade */
-      transform: translateX(13px);  /* Reduzido pela metade */
-    }
-
-    .slider.round {
-      border-radius: 17px;  /* Reduzido pela metade */
-    }
-
-    .slider.round:before {
-      border-radius: 50%;
-    }
-    </style>
-    """
-
-    # Escreva o HTML em um arquivo
-    with open("output1.html", "w") as f:
-        f.write(html)
-    webbrowser.open('output1.html')
 
 if __name__ == "__main__":
     asyncio.run(main())

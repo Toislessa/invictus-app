@@ -4,7 +4,7 @@ import sys
 # Dependências são automaticamente detectadas, mas pode precisar de ajustes finos.
 build_exe_options = {
     "packages": ["os", "datetime", "subprocess", "requests", "tkinter", "pandas", "sys", "webbrowser", "time", "collections"],
-    "include_files": ["intervalos12.py", "App.py", "index.html", "static/"],
+    "include_files": ["intervalos12.py", "app.py", "index.html", "static/"],
     "includes": ["tkinter", "pandas", "webbrowser", "asyncio", "aiohttp","os", "datetime", "subprocess", "requests", "sys", "time", "collections"]
 }
 

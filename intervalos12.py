@@ -474,7 +474,7 @@ async def main():
                 if any("P" in multiplo for multiplo in multiplos) or j > i:
                     continue
                 found = False
-                for shift, label in [(-1, 'Depois'), (0, 'Lata'), (1, 'Antes')]:
+                for shift, label in [(0, 'Lata'), (-1, 'Depois'), (1, 'Antes')]:
                     zero_time_2 = get_time_shifted(row['Branco'], shift)
                     print(f"  Verificando zero_time: {zero_time_2}")
                     if zero_time_2 in multiplos:
@@ -602,6 +602,7 @@ async def main():
         df[column] = df[column].apply(lambda
                                           x: f'<div style="text-align: center;"><img src="./static/pago.png" width="20" height="20"><br><div>{x[2:]}</div></div>' if isinstance(
             x, str) and x.startswith('P ') else x)
+
 
     # Converta a coluna "Intervalos" para números, ignorando os erros
     df["Casas Ordem"] = pd.to_numeric(df["Casas Ordem"], errors='coerce')

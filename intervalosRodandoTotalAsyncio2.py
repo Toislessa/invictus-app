@@ -11,7 +11,6 @@ from collections import OrderedDict
 from datetime import datetime
 from datetime import datetime, timedelta, date
 
-
 from joblib import Parallel, delayed
 
 start_time = time.time()  # Início da medição do tempo
@@ -459,6 +458,7 @@ async def main():
     # Inicio Colocar "P" nos multiplos de 14
     index_to_column = {i: str(14 * (i + 1)) for i in range(252 // 14)}
     previous_time = None
+    found_times = set()  # Crie um conjunto para armazenar os horários encontrados
 
     previous_zero_time = None  # Inicialize a variável fora do loop
 
@@ -473,8 +473,9 @@ async def main():
                 continue  # Se o horário do zero correspondente for igual ao horário do zero anterior, pule para a próxima iteração
             previous_zero_time = row['Branco']  # Atualize o horário do zero anterior
 
-            # 2 - Procura por "X" não presente em row['multiplos'], mesmo se "P" estiver presente
-            if not any("X" in multiplo for multiplo in row['multiplos']):
+            # 1 - Procura por "X" não presente em row['multiplos'], mesmo se "P" estiver presente
+            if not any("X" in multiplo for multiplo in row['multiplos']) and row[
+                'Branco'] not in found_times:  # Verifique se o horário já foi encontrado
                 previous_time = row['Branco']
                 for j, multiplos in df['multiplos'].items():
                     print(f"  Processando célula {j}...")
@@ -491,11 +492,13 @@ async def main():
                         df.at[j, column] = f"X {df.at[j, column]} Lata"
                         df.at[j, 'multiplos'] = [f"X {multiplo} Lata" if multiplo == zero_time_2 else multiplo for
                                                  multiplo in multiplos]
+                        found_times.add(row['Branco'])  # Adicione o horário ao conjunto de horários encontrados
                         break  # Interrompe a busca do horário quando encontra uma correspondência
 
-            # 1 - Procura por "P" não presente em row['multiplos']
+            # 2 - Procura por "P" não presente em row['multiplos']
             if not any("P" in multiplo for multiplo in row['multiplos']) and not any(
-                    "X" in multiplo for multiplo in row['multiplos']):
+                    "X" in multiplo for multiplo in row['multiplos']) and row[
+                'Branco'] not in found_times:  # Verifique se o horário já foi encontrado
                 previous_time = row['Branco']
                 for j, multiplos in df['multiplos'].items():
                     print(f"  Processando célula {j}...")
@@ -505,9 +508,9 @@ async def main():
                     for shift, label in [(-1, 'Depois'),
                                          (1, 'Antes')]:  # Busca pelos horários com minuto antes e depois
                         zero_time_2 = get_time_shifted(row['Branco'], shift)
-                        print(f"  Verificando zero_time: {zero_time_2}")
+                        # print(f"  Verificando zero_time: {zero_time_2}")
                         if zero_time_2 in multiplos:
-                            print(f"  Encontrado {zero_time_2} em multiplos!")
+                            # print(f"  Encontrado {zero_time_2} em multiplos!")
                             df.at[i, 'Branco'] = f"P {row['Branco']} {label} Linha {j + 1}"
                             zero_time_index = multiplos.index(zero_time_2)
                             column = index_to_column[zero_time_index]
@@ -519,16 +522,13 @@ async def main():
                             continue
                         break
 
-    # Fim coloca "P" nos multiplos
-
-    # Fim coloca "P" nos multiplos
-
     # INICIO gerar df4
     # Crie um OrderedDict para armazenar os horários
     horarios_sem_p = OrderedDict()
 
     hora_atual = datetime.now().time()  # obtenha a hora atual
-    uma_hora_depois = (datetime.now() + timedelta(hours=0.5)).time()  # obtenha a hora que será uma hora a partir de agora
+    uma_hora_depois = (
+                datetime.now() + timedelta(hours=0.5)).time()  # obtenha a hora que será uma hora a partir de agora
 
     for i, row in df.iterrows():
         print(f"Processando linha {i}...")
@@ -543,7 +543,8 @@ async def main():
             if multiplo and all(char.isdigit() or char == ':' for char in multiplo):
                 hora_multiplo = datetime.strptime(multiplo, "%H:%M").time()
                 if hora_atual <= hora_multiplo <= uma_hora_depois:
-                    horarios_sem_p[multiplo] = f"{i+1}/{row['multiplos'].index(multiplo) + 1}"  # Adiciona linha/coluna
+                    horarios_sem_p[
+                        multiplo] = f"{i + 1}/{row['multiplos'].index(multiplo) + 1}"  # Adiciona linha/coluna
 
         # Converta o OrderedDict em uma lista e ordene-a
         horarios_sem_p = dict(sorted(horarios_sem_p.items(), key=lambda x: datetime.strptime(x[0], '%H:%M')))
@@ -567,7 +568,7 @@ async def main():
         # Preenche a linha 'Lin/Col' com os valores de horarios_sem_p
         df4.loc[0, list(horarios_sem_p.keys())] = list(horarios_sem_p.values())
 
-# Preencher linhas branco1 e e branco2 do df4
+    # Preencher linhas branco1 e e branco2 do df4
 
     # Preencher linhas branco1 e e branco2 do df4
     def is_time_close_to(time1_str, time2_str):
@@ -609,9 +610,9 @@ async def main():
 
     df4.loc[1, df4.columns[1:]] = branco1_list
     df4.loc[2, df4.columns[1:]] = branco2_list
-# FIM Preencher linhas branco1 e e branco2 do df4
+    # FIM Preencher linhas branco1 e e branco2 do df4
 
-# FIM gerar df4
+    # FIM gerar df4
 
     df = df.drop(columns=['multiplos'])
 
@@ -674,9 +675,6 @@ async def main():
             f'<img src="./static/pago31.jpeg" width="50" height="50"><br>{x.replace("X ", "")}' if "X" in x else (
                 f'<img src="./static/0.jpeg" width="50" height="50"><br>{x}' if ":" in x else x)))
 
-
-
-
     # Adicione a imagem à coluna "Intervalo" apenas se a célula estiver preenchida
     df["Casas"] = df["Casas"].apply(lambda
                                         x: f'<div style="position: relative; text-align: center;"><img src="./static/intervalo1.png" width="50" height="55"><span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: black;">{x}</span></div>' if x != "" else "")
@@ -695,7 +693,9 @@ async def main():
     # Cria uma lista com os nomes das colunas
     columns = [str(i) for i in range(14, 262, 14)]  # Cria uma lista com os nomes das colunas
     for column in columns:
-        df[column] = df[column].apply(lambda x: f'<div style="text-align: center;"><img src="./static/pago4.png" width="20" height="20"><br><div>{x[2:]}</div></div>' if isinstance(x, str) and x.startswith('X ') else x)
+        df[column] = df[column].apply(lambda
+                                          x: f'<div style="text-align: center;"><img src="./static/pago4.png" width="20" height="20"><br><div>{x[2:]}</div></div>' if isinstance(
+            x, str) and x.startswith('X ') else x)
 
     # Converta a coluna "Intervalos" para números, ignorando os erros
     df["Casas Ordem"] = pd.to_numeric(df["Casas Ordem"], errors='coerce')
@@ -917,6 +917,7 @@ function toggleDf() {
     with open("output1.html", "w") as f:
         f.write(html)
     webbrowser.open('output1.html')
+
 
 if __name__ == "__main__":
     asyncio.run(main())
